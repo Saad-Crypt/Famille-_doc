@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14313c">
+<title>خزانة العائلة الرقمية</title>
+<style>
+:root{--ink:#14313c;--blue:#1f6f8b;--gold:#d99a2b;--bg:#f4f5f2;--card:#fff;--tx:#1b2a30;--mute:#66767c;--line:#dfe4e2;--red:#b3392f}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font-family:"Noto Naskh Arabic","Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--tx);font-size:17px;line-height:1.6}
+button,input,select,textarea{font:inherit;color:inherit}
+header{background:var(--ink);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:20px}
+.lockbtn{background:none;border:1px solid #ffffff55;color:#fff;border-radius:20px;padding:2px 14px;cursor:pointer}
+main{padding:14px 14px 100px;max-width:720px;margin:auto}
+nav{position:fixed;bottom:0;inset-inline:0;background:#fff;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;padding:10px 2px;font-size:14px;color:var(--mute);cursor:pointer;border-top:3px solid transparent}
+nav button.on{color:var(--blue);border-top-color:var(--gold);font-weight:700}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+select,input,textarea{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;width:100%}
+.row select{flex:1;min-width:120px;width:auto}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer}
+.btn.alt{background:#fff;color:var(--blue);border:1px solid var(--blue)}
+.btn.del{background:#fff;color:var(--red);border:1px solid var(--red)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,nav button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center;cursor:pointer}
+.item .ic{width:44px;height:44px;border-radius:10px;background:#e3eef2;color:var(--blue);display:grid;place-items:center;font-size:22px;flex:none;overflow:hidden}
+.item .ic img{width:100%;height:100%;object-fit:cover}
+.item b{display:block}
+.item small{color:var(--mute)}
+.empty{text-align:center;color:var(--mute);padding:40px 10px}
+h2{font-size:19px;margin:6px 0 12px}
+.gen{margin-bottom:16px}
+.gen h3{font-size:14px;color:var(--mute);margin-bottom:6px;font-weight:600}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:#fff;border:1px solid var(--line);border-inline-start:4px solid var(--gold);border-radius:10px;padding:6px 12px;cursor:pointer}
+.sheet{position:fixed;inset:0;background:#0009;display:flex;align-items:flex-end;justify-content:center;z-index:5}
+.sheet>div{background:#fff;width:100%;max-width:720px;max-height:92%;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.sheet label{display:block;margin:10px 0 3px;font-size:15px;color:var(--mute)}
+.sheet .row{margin-top:16px}
+.sheet img,.sheet iframe{width:100%;border:0;border-radius:10px;max-height:70vh;object-fit:contain}
+.sheet iframe{height:70vh}
+.lock{position:fixed;inset:0;background:var(--ink);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;z-index:9;text-align:center}
+.lock h1{font-size:26px}
+.lock p{color:#b9cdd3;max-width:320px}
+.lock input{max-width:300px;text-align:center;font-size:20px;letter-spacing:4px}
+.err{color:#ffb4aa;min-height:26px}
+.note{background:#fff7e6;border:1px solid #f0d9a8;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:15px}
+.hide{display:none!important}
+.cam{position:fixed;inset:0;background:#000;z-index:20;display:flex;flex-direction:column}.cam video{flex:1;min-height:0;width:100%;object-fit:contain}.camb{display:flex;gap:10px;justify-content:center;padding:14px 14px calc(14px + env(safe-area-inset-bottom));background:#000}.pk .item{cursor:default;padding:8px 10px;margin-bottom:6px}.pk .item .btn{padding:4px 12px}
+@media (prefers-reduced-motion:no-preference){.sheet>div{animation:up .2s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.5}}}
+</style>
+</head>
+<body>
+<div id="lock" class="lock"></div>
+<div id="app" class="hide">
+<header><h1>خزانة العائلة</h1><button class="lockbtn" id="lockNow">قفل</button></header>
+<main id="main"></main>
+<nav id="nav"></nav>
+</div>
+<div id="sheet" class="sheet hide"><div id="sheetIn"></div></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s),te=new TextEncoder(),td=new TextDecoder();
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const CATS=["هوية وحالة مدنية","صحة","تعليم","عقارات وعقود","مالية وفواتير","سيارة","أخرى"];
+const RELS=[["جد / جدة",0],["أب / أم",1],["عم / خال / عمة / خالة",1],["أنا / شريك الحياة",2],["أخ / أخت",2],["ابن / ابنة",3],["حفيد / حفيدة",4]];
+const GENS=["الأجداد","الآباء","جيلي","الأبناء","الأحفاد"];
+let KEY=null,tab="docs",items=[],MAX_MB=40,busy=0,PK={},pending=[];
+
+/* ---------- IndexedDB ---------- */
+const dbp=new Promise((ok,no)=>{const r=indexedDB.open("fv",1);r.onupgradeneeded=()=>{r.result.createObjectStore("kv",{keyPath:"k"});r.result.createObjectStore("items",{keyPath:"id"})};r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+async function st(n,m="readonly"){return (await dbp).transaction(n,m).objectStore(n)}
+const rq=r=>new Promise((ok,no)=>{r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const kvGet=async k=>(await rq((await st("kv")).get(k)))?.v;
+const kvSet=async(k,v)=>rq((await st("kv","readwrite")).put({k,v}));
+const putItem=async o=>rq((await st("items","readwrite")).put(o));
+const delItem=async id=>rq((await st("items","readwrite")).delete(id));
+const allItems=async()=>rq((await st("items")).getAll());
+
+/* ---------- Crypto: PBKDF2 -> AES-GCM ---------- */
+async function derive(pw,salt){const k=await crypto.subtle.importKey("raw",te.encode(pw),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:310000,hash:"SHA-256"},k,{name:"AES-GCM",length:256},false,["encrypt","decrypt"])}
+async function enc(key,buf){const iv=crypto.getRandomValues(new Uint8Array(12)),c=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},key,buf)),o=new Uint8Array(12+c.length);o.set(iv);o.set(c,12);return o}
+const dec=(key,u)=>crypto.subtle.decrypt({name:"AES-GCM",iv:u.slice(0,12)},key,u.slice(12));
+const b64=u=>{let s="";for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+
+/* ---------- Lock screen ---------- */
+async function showLock(){
+  KEY=null;items=[];$("#app").classList.add("hide");closeSheet();
+  const first=!(await kvGet("salt")),L=$("#lock");L.classList.remove("hide");
+  L.innerHTML=`<div style="font-size:48px">🔐</div><h1>خزانة العائلة الرقمية</h1>
+  <p>${first?"اختاروا رمزاً سرياً من 6 أحرف أو أرقام على الأقل. لا يمكن استعادته إذا نُسي، فاحفظوه جيداً.":"أدخل الرمز السري لفتح الخزانة."}</p>
+  <input id="pw" type="password" autocomplete="off" aria-label="الرمز السري" placeholder="الرمز السري">
+  ${first?'<input id="pw2" type="password" autocomplete="off" aria-label="تأكيد الرمز" placeholder="أعد كتابة الرمز">':""}
+  <div class="err" id="err"></div><button class="btn" id="go">${first?"إنشاء الخزانة":"فتح"}</button>`;
+  const go=async()=>{
+    const pw=$("#pw").value,e=$("#err");e.textContent="";
+    if(first){
+      if(pw.length<6)return e.textContent="الرمز قصير: 6 خانات على الأقل.";
+      if(pw!==$("#pw2").value)return e.textContent="الرمزان غير متطابقين.";
+      e.textContent="جارٍ التجهيز…";
+      const salt=crypto.getRandomValues(new Uint8Array(16));KEY=await derive(pw,salt);
+      await kvSet("salt",salt);await kvSet("check",await enc(KEY,te.encode("ok")));
+    }else{
+      e.textContent="جارٍ التحقق…";
+      const fails=(await kvGet("fails"))||0;if(fails>2)await new Promise(r=>setTimeout(r,Math.min(fails,8)*1500));
+      try{KEY=await derive(pw,await kvGet("salt"));await dec(KEY,await kvGet("check"));await kvSet("fails",0)}
+      catch{KEY=null;await kvSet("fails",fails+1);return e.textContent="الرمز غير صحيح."}
+    }
+    await load();L.classList.add("hide");$("#app").classList.remove("hide");render();
+  };
+  $("#go").onclick=go;
+  $("#pw").onkeydown=e=>{if(e.key==="Enter")first?$("#pw2").focus():go()};
+  if(first)$("#pw2").onkeydown=e=>{if(e.key==="Enter")go()};
+}
+async function load(){
+  const raw=await allItems();items=[];
+  for(const r of raw){try{items.push({id:r.id,type:r.type,hasFile:!!r.file,m:JSON.parse(td.decode(await dec(KEY,r.meta)))})}catch{}}
+  items.sort((a,b)=>(b.m.date||"").localeCompare(a.m.date||""));
+}
+$("#lockNow").onclick=showLock;
+document.addEventListener("visibilitychange",()=>{if(document.hidden){if(KEY&&Date.now()>busy)showLock()}else busy=0});
+
+/* ---------- Views ---------- */
+const TABS=[["docs","📄","الوثائق"],["people","👪","الأفراد"],["mem","📷","الذكريات"],["bak","💾","النسخ"]];
+function render(){
+  $("#nav").innerHTML=TABS.map(t=>`<button class="${t[0]===tab?"on":""}" data-t="${t[0]}">${t[1]}<br>${t[2]}</button>`).join("");
+  $("#nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
+  ({docs:vDocs,people:vPeople,mem:vMem,bak:vBak})[tab]();
+}
+const people=()=>items.filter(i=>i.type==="person");
+const pname=id=>people().find(p=>p.id===id)?.m.name||"الأسرة كلها";
+let fPerson="",fCat="";
+function listHTML(type){
+  let l=items.filter(i=>i.type===type);
+  if(type==="doc"){if(fPerson)l=l.filter(i=>i.m.person===fPerson);if(fCat)l=l.filter(i=>i.m.cat===fCat)}
+  if(!l.length)return`<div class="empty">${type==="doc"?"لا توجد وثائق بعد. أضيفوا أول وثيقة.":"لا توجد ذكريات بعد. أضيفوا أول صورة أو حكاية."}</div>`;
+  return l.map(i=>`<div class="item" data-id="${i.id}"><div class="ic">${i.m.mime?.startsWith("image/")?"🖼️":type==="mem"?"📖":"📄"}</div><div><b>${esc(i.m.title)}</b><small>${esc(pname(i.m.person))}${i.m.cat?" · "+esc(i.m.cat):""}${i.m.date?" · "+esc(i.m.date):""}</small></div></div>`).join("");
+}
+function bindList(){$("#main").querySelectorAll(".item").forEach(e=>e.onclick=()=>openItem(e.dataset.id))}
+function vDocs(){
+  $("#main").innerHTML=`<div class="row"><select id="fp" aria-label="الفرد"><option value="">كل الأفراد</option>${people().map(p=>`<option value="${p.id}" ${p.id===fPerson?"selected":""}>${esc(p.m.name)}</option>`).join("")}</select>
+  <select id="fc" aria-label="القسم"><option value="">كل الأقسام</option>${CATS.map(c=>`<option ${c===fCat?"selected":""}>${c}</option>`).join("")}</select></div>
+  <div class="row"><button class="btn" id="add">+ إضافة وثيقة</button></div>${listHTML("doc")}`;
+  $("#fp").onchange=e=>{fPerson=e.target.value;vDocs()};$("#fc").onchange=e=>{fCat=e.target.value;vDocs()};
+  $("#add").onclick=()=>form("doc");bindList();
+}
+function vMem(){
+  $("#main").innerHTML=`<div class="row"><button class="btn" id="add">+ إضافة ذكرى</button></div>${listHTML("mem")}`;
+  $("#add").onclick=()=>form("mem");bindList();
+}
+function vPeople(){
+  const ps=people();
+  $("#main").innerHTML=`<div class="row"><button class="btn" id="add">+ إضافة فرد</button></div>`+
+  (ps.length?`<h2>شجرة العائلة</h2>`+GENS.map((g,gi)=>{const l=ps.filter(p=>(RELS.find(r=>r[0]===p.m.rel)?.[1]??2)===gi);return l.length?`<div class="gen"><h3>${g}</h3><div class="chips">${l.map(p=>`<div class="chip" data-id="${p.id}"><b>${esc(p.m.name)}</b><br><small>${esc(p.m.rel)}${p.m.birth?" · "+esc(p.m.birth):""}</small></div>`).join("")}</div></div>`:""}).join(""):`<div class="empty">أضيفوا أفراد الأسرة لتنظيم الوثائق حسب كل شخص.</div>`);
+  $("#add").onclick=()=>form("person");
+  $("#main").querySelectorAll(".chip").forEach(c=>c.onclick=()=>openItem(c.dataset.id));
+}
+function vBak(){
+  $("#main").innerHTML=`<div class="note">كل شيء محفوظ ومشفّر داخل هذا الهاتف فقط، ولا يُرسَل أي شيء إلى الإنترنت. إن فُقد الهاتف أو حُذف التطبيق تضيع البيانات، لذلك احفظوا نسخة احتياطية بانتظام.</div>
+  <h2>نسخة احتياطية مشفّرة</h2><p style="margin-bottom:10px">ملف واحد يُحمّى بكلمة مرور تختارونها، يمكن حفظه في مكان آمن.</p>
+  <div class="row"><button class="btn" id="exp">تصدير نسخة</button></div>
+  <h2>استعادة</h2><div class="row"><label class="btn alt" style="cursor:pointer">اختيار ملف نسخة<input id="imp" type="file" accept=".fvbak,application/json" class="hide"></label></div>
+  <div class="err" id="bmsg" style="color:var(--blue)"></div>`;
+  $("#exp").onclick=exportBackup;$("#imp").onchange=e=>importBackup(e.target.files[0]);
+}
+
+/* ---------- Forms ---------- */
+function closeSheet(){$("#sheet").classList.add("hide");$("#sheetIn").innerHTML=""}
+$("#sheet").onclick=e=>{if(e.target.id==="sheet")closeSheet()};
+function opts(a,sel){return a.map(x=>`<option ${x===sel?"selected":""}>${x}</option>`).join("")}
+function form(type){
+  PK={accept:type==="mem"?"image/*":"*/*",multi:type==="doc"};pending=[];
+  const pOpts=`<option value="">الأسرة كلها</option>`+people().map(p=>`<option value="${p.id}">${esc(p.m.name)}</option>`).join("");
+  const f={
+    doc:`<label>عنوان الوثيقة</label><input id="f_title"><label>الفرد</label><select id="f_person">${pOpts}</select><label>القسم</label><select id="f_cat">${opts(CATS)}</select><label>التاريخ</label><input id="f_date" type="date"><label>ملاحظة</label><textarea id="f_note" rows="2"></textarea><label>الملفات (PDF أو صور أو غيرها)</label>${pickerHTML()}`,
+    mem:`<label>عنوان الذكرى</label><input id="f_title"><label>التاريخ</label><input id="f_date" type="date"><label>الحكاية</label><textarea id="f_note" rows="4"></textarea><label>صورة (اختياري)</label>${pickerHTML()}`,
+    person:`<label>الاسم</label><input id="f_name"><label>صلة القرابة</label><select id="f_rel">${opts(RELS.map(r=>r[0]),"أنا / شريك الحياة")}</select><label>تاريخ الميلاد</label><input id="f_birth" type="date"><label>ملاحظة</label><textarea id="f_note" rows="2"></textarea>`}[type];
+  $("#sheetIn").innerHTML=`<h2>${{doc:"وثيقة جديدة",mem:"ذكرى جديدة",person:"فرد جديد"}[type]}</h2>${f}<div class="err" id="ferr" style="color:var(--red)"></div><div class="row"><button class="btn" id="save">حفظ</button><button class="btn alt" id="cancel">إلغاء</button></div>`;
+  $("#sheet").classList.remove("hide");$("#cancel").onclick=closeSheet;if(type!=="person")bindPicker();
+  $("#save").onclick=async()=>{
+    const v=id=>$("#f_"+id)?.value||"",e=$("#ferr"),files=type==="person"?[]:pending.slice();
+    const base=type==="person"?{name:v("name").trim(),rel:v("rel"),birth:v("birth"),note:v("note")}:{title:v("title").trim(),person:v("person"),cat:v("cat"),date:v("date"),note:v("note")};
+    if(type==="person"&&!base.name)return e.textContent="الاسم مطلوب.";
+    if(type==="mem"&&!base.title)return e.textContent="عنوان الذكرى مطلوب.";
+    if(type==="doc"&&!files.length)return e.textContent="اختاروا ملفاً أو التقطوا صورة بالكاميرا.";
+    if(files.some(f=>f.size>MAX_MB*1048576))return e.textContent=`أحد الملفات أكبر من ${MAX_MB} ميغابايت.`;
+    $("#save").disabled=true;const list=files.length?files:[null];
+    for(let i=0;i<list.length;i++){
+      e.style.color="var(--blue)";e.textContent=`جارٍ التشفير والحفظ ${i+1}/${list.length}…`;
+      const f=list[i],m={...base},rec={id:crypto.randomUUID(),type};
+      if(f){m.mime=f.type;m.fname=f.name;
+        if(type==="doc")m.title=base.title?(list.length>1?`${base.title} (${i+1})`:base.title):f.name.replace(/\.[^.]+$/,"");
+        rec.file=await enc(KEY,await f.arrayBuffer())}
+      rec.meta=await enc(KEY,te.encode(JSON.stringify(m)));
+      await putItem(rec);
+    }
+    pending=[];await load();closeSheet();render();
+  };
+}
+
+/* ---------- In-app file picker + camera ---------- */
+function pickerHTML(){return `<div class="row" style="margin-top:6px"><label class="btn alt" style="cursor:pointer">📁 اختيار من الجهاز<input id="f_file" type="file" ${PK.multi?"multiple":""} accept="${PK.accept}" class="hide"></label><button class="btn alt" type="button" id="f_cam">📷 كاميرا</button></div><div id="f_list" class="pk"></div>`}
+function drawList(){
+  const L=$("#f_list");if(!L)return;
+  L.innerHTML=pending.map((f,i)=>`<div class="item"><div class="ic">${f.type.startsWith("image/")?"🖼️":"📄"}</div><div style="flex:1;min-width:0"><b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</b><small>${(f.size/1048576).toFixed(2)} م.ب</small></div><button class="btn del" type="button" data-i="${i}" aria-label="إزالة">✕</button></div>`).join("");
+  L.querySelectorAll("button").forEach(b=>b.onclick=()=>{pending.splice(+b.dataset.i,1);drawList()});
+}
+function bindPicker(){
+  const inp=$("#f_file");
+  inp.onclick=()=>{busy=Date.now()+120000};
+  inp.onchange=()=>{const fs=[...inp.files];pending=PK.multi?pending.concat(fs):fs.slice(0,1);inp.value="";drawList()};
+  $("#f_cam").onclick=openCam;drawList();
+}
+async function openCam(){
+  busy=Date.now()+120000;let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920}},audio:false})}
+  catch{$("#ferr").style.color="var(--red)";$("#ferr").textContent="تعذّر فتح الكاميرا. تأكدوا من منح التطبيق إذن الكاميرا.";return}
+  const o=document.createElement("div");o.className="cam";
+  o.innerHTML=`<video autoplay playsinline muted></video><div class="camb"><button class="btn" type="button" id="c_shot">التقاط</button><button class="btn alt" type="button" id="c_done">تم (<span id="c_n">0</span>)</button></div>`;
+  document.body.appendChild(o);const vid=o.querySelector("video");vid.srcObject=stream;let n=0;
+  const stop=()=>{stream.getTracks().forEach(t=>t.stop());o.remove()};
+  o.querySelector("#c_shot").onclick=()=>{
+    if(!vid.videoWidth)return;const c=document.createElement("canvas");c.width=vid.videoWidth;c.height=vid.videoHeight;c.getContext("2d").drawImage(vid,0,0);
+    c.toBlob(bl=>{const f=new File([bl],"صورة-"+new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")+".jpg",{type:"image/jpeg"});
+      pending=PK.multi?pending.concat(f):[f];n++;o.querySelector("#c_n").textContent=n;drawList();if(!PK.multi)stop()},"image/jpeg",.9);
+  };
+  o.querySelector("#c_done").onclick=stop;
+}
+
+/* ---------- Open / delete ---------- */
+let curUrl=null;
+async function openItem(id){
+  const it=items.find(i=>i.id===id);if(!it)return;const m=it.m;
+  let media="";
+  if(it.hasFile){
+    const rec=await rq((await st("items")).get(id)),buf=await dec(KEY,rec.file);
+    const blob=new Blob([buf],{type:m.mime||"application/octet-stream"});curUrl=URL.createObjectURL(blob);
+    media=m.mime?.startsWith("image/")?`<img src="${curUrl}" alt="">`:m.mime==="application/pdf"?`<iframe src="${curUrl}" title="عرض الوثيقة"></iframe>`:"";
+    media+=`<div class="row"><a class="btn alt" style="text-decoration:none" href="${curUrl}" download="${esc(m.fname||"file")}">حفظ نسخة غير مشفّرة على الجهاز</a></div>`;
+  }
+  const t=m.title||m.name;
+  $("#sheetIn").innerHTML=`<h2>${esc(t)}</h2><p style="color:var(--mute)">${[it.type==="person"?m.rel:pname(m.person),m.cat,m.date||m.birth].filter(Boolean).map(esc).join(" · ")}</p>${m.note?`<p style="margin:8px 0;white-space:pre-wrap">${esc(m.note)}</p>`:""}${media}
+  <div class="row"><button class="btn alt" id="close">إغلاق</button><button class="btn del" id="del">حذف</button></div>`;
+  $("#sheet").classList.remove("hide");
+  const done=()=>{if(curUrl)URL.revokeObjectURL(curUrl);curUrl=null;closeSheet()};
+  $("#close").onclick=done;
+  $("#del").onclick=async()=>{if(confirm("حذف نهائي؟ لا يمكن التراجع."))
+    {await delItem(id);await load();done();render()}};
+}
+
+/* ---------- Encrypted backup ---------- */
+async function exportBackup(){
+  const pw=prompt("اختاروا كلمة مرور للنسخة الاحتياطية (6 أحرف على الأقل). ستحتاجونها عند الاستعادة.");
+  if(!pw||pw.length<6)return;const msg=$("#bmsg");msg.textContent="جارٍ إنشاء النسخة…";
+  const salt=crypto.getRandomValues(new Uint8Array(16)),bk=await derive(pw,salt),out=[];
+  for(const r of await allItems()){
+    out.push({id:r.id,type:r.type,meta:b64(await enc(bk,await dec(KEY,r.meta))),file:r.file?b64(await enc(bk,await dec(KEY,r.file))):null});
+  }
+  const blob=new Blob([JSON.stringify({v:1,salt:b64(salt),items:out})],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="family-vault-"+new Date().toISOString().slice(0,10)+".fvbak";a.click();
+  msg.textContent="تم إنشاء النسخة. احفظوها خارج الهاتف.";
+}
+async function importBackup(f){
+  if(!f)return;const msg=$("#bmsg");
+  try{
+    const d=JSON.parse(await f.text()),pw=prompt("كلمة مرور النسخة الاحتياطية:");if(!pw)return;
+    const bk=await derive(pw,unb64(d.salt));msg.textContent="جارٍ الاستعادة…";let n=0;
+    for(const r of d.items){
+      const meta=await dec(bk,unb64(r.meta)),rec={id:r.id,type:r.type,meta:await enc(KEY,meta)};
+      if(r.file)rec.file=await enc(KEY,await dec(bk,unb64(r.file)));
+      await putItem(rec);n++;
+    }
+    await load();msg.textContent=`تمت استعادة ${n} عنصراً.`;
+  }catch{msg.textContent="تعذّرت الاستعادة: كلمة المرور خاطئة أو الملف تالف."}
+}
+
+navigator.storage?.persist?.();
+showLock();
+</script>
+</body>
+</html>
